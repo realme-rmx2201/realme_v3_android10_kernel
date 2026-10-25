@@ -1,3 +1,17 @@
+import builtins
+
+def _cmp(a, b):
+    """py2 cmp() shim: -1 / 0 / 1."""
+    return (a > b) - (a < b)
+
+builtins.cmp = _cmp
+
+# py2 exposed atoi/atof/atol on the `string` module; py3 removed them.
+import string as _string
+_string.atoi = lambda x, base=10: int(x, base)
+_string.atol = lambda x, base=10: int(x, base)
+_string.atof = float
+
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 
@@ -27,11 +41,11 @@ class LogLevel:
 
 def log(level, msg):
     if level == LogLevel.info:
-        print LEVEL_INFO + msg
+        print(LEVEL_INFO + msg)
     elif level == LogLevel.warn:
-        print LEVEL_WARN + msg
+        print(LEVEL_WARN + msg)
     elif level == LogLevel.error:
-        print LEVEL_ERROR + msg
+        print(LEVEL_ERROR + msg)
 
 def compare(value):
     lst = re.findall(r'\d+', value)

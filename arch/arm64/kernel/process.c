@@ -147,6 +147,10 @@ void machine_power_off(void)
  */
 void machine_restart(char *cmd)
 {
+	/* BOOTDBG: trace who called reboot */
+	printk(KERN_EMERG "BOOTDBG: machine_restart(cmd=\"%s\") from:\n", cmd ? cmd : "(null)");
+	dump_stack();
+
 	/* Disable interrupts first */
 	local_irq_disable();
 	smp_send_stop();

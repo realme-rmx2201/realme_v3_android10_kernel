@@ -80,12 +80,23 @@ class ModuleObj:
 
     @staticmethod
     def get_figPath():
-        figPath = os.path.join(sys.path[0], 'config', ModuleObj.get_chipId() + '.fig')
-        if not os.path.exists(figPath) or not os.path.isfile(figPath):
-            log(LogLevel.error, 'Can not find %s.fig file!' %(ModuleObj.get_chipId()))
-            sys.exit(-1)
-
-        return figPath
+        # py3: sys.path[0] is no longer reliably the tool directory (it is the
+        # script/entry dir, which differs when invoked via make from out/).
+        # Resolve config/ relative to this file instead, with sys.path[0] as
+        # a legacy fallback.
+        name = ModuleObj.get_chipId() + '.fig'
+        # NOTE: this is a @staticmethod on a *class*, so __file__ here refers to
+        # the calling script. Use the module's own path instead.
+        import inspect as _inspect
+        _self_file = _inspect.getfile(_inspect.getmodule(ModuleObj))
+        _tool_dir = os.path.dirname(os.path.dirname(os.path.abspath(_self_file)))
+        candidates = [os.path.join(_tool_dir, 'config', name),
+                      os.path.join(sys.path[0] or '.', 'config', name)]
+        for figPath in candidates:
+            if os.path.exists(figPath) and os.path.isfile(figPath):
+                return figPath
+        log(LogLevel.error, 'Can not find %s.fig file!' %(ModuleObj.get_chipId()))
+        sys.exit(-1)
 
     @staticmethod
     def get_cmpPath():

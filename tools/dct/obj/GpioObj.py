@@ -23,7 +23,7 @@ import xml.dom.minidom
 from data.GpioData import GpioData
 from data.EintData import EintData
 from ModuleObj import ModuleObj
-import ChipObj
+# import ChipObj  # unused; caused a py3 circular import
 from utility.util import compare
 from utility.util import sorted_key
 from utility.util import log

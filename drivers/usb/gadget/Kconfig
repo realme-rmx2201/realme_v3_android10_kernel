@@ -168,7 +168,7 @@ config USB_F_OBEX
 	tristate
 
 config USB_F_NCM
-	tristate
+	tristate "NCM function (module test)"
 
 config USB_F_ECM
 	tristate
@@ -265,11 +265,10 @@ config USB_CONFIGFS_OBEX
 	  since the kernel itself doesn't implement the OBEX protocol.
 
 config USB_CONFIGFS_NCM
-	bool "Network Control Model (CDC NCM)"
+	tristate "Network Control Model (CDC NCM)"
 	depends on USB_CONFIGFS
 	depends on NET
 	select USB_U_ETHER
-	select USB_F_NCM
 	help
 	  NCM is an advanced protocol for Ethernet encapsulation, allows
 	  grouping of several ethernet frames into one USB transfer and

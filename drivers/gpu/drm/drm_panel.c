@@ -78,6 +78,8 @@ EXPORT_SYMBOL(drm_panel_add);
  */
 void drm_panel_remove(struct drm_panel *panel)
 {
+	if (!panel)
+		return;
 	mutex_lock(&panel_lock);
 	list_del_init(&panel->list);
 	mutex_unlock(&panel_lock);

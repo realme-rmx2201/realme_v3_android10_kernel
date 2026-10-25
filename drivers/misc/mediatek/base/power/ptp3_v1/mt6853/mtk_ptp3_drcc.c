@@ -187,6 +187,11 @@ int drcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
+	if (!buf) {
+		drcc_msg("drcc_buf is NULL, skip dump\n");
+		return -1;
+	}
+
 	/* check free page valid or not */
 	if (!aee_log_buf) {
 		drcc_msg("unable to get free page!\n");

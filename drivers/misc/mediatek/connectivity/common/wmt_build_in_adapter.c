@@ -14,6 +14,14 @@
 #include <linux/kernel.h>
 
 #include "wmt_build_in_adapter.h"
+#include <linux/string.h>
+#include <linux/printk.h>
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/proc_fs.h>
+#include <linux/ctype.h>
+#include <linux/cdev.h>
 
 /*device tree mode*/
 #ifdef CONFIG_OF
@@ -24,6 +32,7 @@
 #endif
 
 #include <linux/interrupt.h>
+#include <linux/ratelimit.h>
 
 #define CONNADP_LOG_LOUD    4
 #define CONNADP_LOG_DBG     3
@@ -67,11 +76,107 @@ do { \
 		pr_info("[E]%s(%d):"  fmt, __func__, __LINE__, ##arg); \
 } while (0)
 
+/* device node related macro */
+#define CONN_DBG_DEV_NUM 1
+#define CONN_DBG_DRVIER_NAME "conn_dbg_drv"
+#define CONN_DBG_DEVICE_NAME "conn_dbg_dev"
+#define CONN_DBG_DEV_MAJOR 156
+
+/* device node related */
+static int gConnDbgMajor = CONN_DBG_DEV_MAJOR;
+static struct class *pConnDbgClass;
+static struct device *pConnDbgDev;
+static struct cdev gConnDbgdev;
 
 /*******************************************************************************
  * Bridging from platform -> wmt_drv.ko
  ******************************************************************************/
 static struct wmt_platform_bridge bridge;
+
+ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
+				size_t count, loff_t *f_pos)
+{
+	pr_info("%s\n", __func__);
+	if (bridge.debug_cb)
+		return bridge.debug_cb(filp, buffer, count, f_pos);
+
+	return 0;
+}
+
+const struct file_operations gConnDbgDevFops = {
+	.write = conn_dbg_dev_write,
+};
+
+static int conn_dbg_dev_init(void)
+{
+	dev_t dev_id = MKDEV(gConnDbgMajor, 0);
+	int ret = 0;
+
+	ret = register_chrdev_region(dev_id, CONN_DBG_DEV_NUM, CONN_DBG_DRVIER_NAME);
+	if (ret) {
+		pr_info("%s fail to register chrdev.(%d)\n", __func__, ret);
+		return -1;
+	}
+
+	cdev_init(&gConnDbgdev, &gConnDbgDevFops);
+	gConnDbgdev.owner = THIS_MODULE;
+
+	ret = cdev_add(&gConnDbgdev, dev_id, CONN_DBG_DEV_NUM);
+	if (ret) {
+		pr_info("cdev_add() fails (%d)\n", ret);
+		goto err1;
+	}
+
+	pConnDbgClass = class_create(THIS_MODULE, CONN_DBG_DEVICE_NAME);
+	if (IS_ERR(pConnDbgClass)) {
+		pr_info("class create fail, error code(%ld)\n", PTR_ERR(pConnDbgClass));
+		goto err2;
+	}
+
+	pConnDbgDev = device_create(pConnDbgClass, NULL, dev_id, NULL, CONN_DBG_DEVICE_NAME);
+	if (IS_ERR(pConnDbgDev)) {
+		pr_info("device create fail, error code(%ld)\n", PTR_ERR(pConnDbgDev));
+		goto err3;
+	}
+
+	return 0;
+err3:
+
+	pr_info("[%s] err3", __func__);
+	if (pConnDbgClass) {
+		class_destroy(pConnDbgClass);
+		pConnDbgClass = NULL;
+	}
+err2:
+	pr_info("[%s] err2", __func__);
+	cdev_del(&gConnDbgdev);
+
+err1:
+	pr_info("[%s] err1", __func__);
+	unregister_chrdev_region(dev_id, CONN_DBG_DEV_NUM);
+
+	return -1;
+}
+
+static int conn_dbg_dev_deinit(void)
+{
+	dev_t dev_id = MKDEV(gConnDbgMajor, 0);
+
+	if (pConnDbgDev) {
+		device_destroy(pConnDbgClass, dev_id);
+		pConnDbgDev = NULL;
+	}
+
+	if (pConnDbgClass) {
+		class_destroy(pConnDbgClass);
+		pConnDbgClass = NULL;
+	}
+
+	cdev_del(&gConnDbgdev);
+	unregister_chrdev_region(dev_id, CONN_DBG_DEV_NUM);
+
+	return 0;
+}
 
 #ifdef DUMP_CLOCK_FAIL_CALLBACK
 static void wmt_clock_debug_dump(enum subsys_id sys)
@@ -94,15 +199,24 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	bridge.clock_fail_dump_cb = cb->clock_fail_dump_cb;
 	bridge.conninfra_reg_readable_cb = cb->conninfra_reg_readable_cb;
 	bridge.conninfra_reg_is_bus_hang_cb = cb->conninfra_reg_is_bus_hang_cb;
+	bridge.conninfra_reg_is_bus_hang_no_lock_cb = cb->conninfra_reg_is_bus_hang_no_lock_cb;
 #ifdef DUMP_CLOCK_FAIL_CALLBACK
 	register_pg_callback(&wmt_clk_subsys_handle);
 #endif
+
+	if (cb->debug_cb != NULL) {
+		bridge.debug_cb = cb->debug_cb;
+		conn_dbg_dev_init();
+	}
+
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_register);
 
 void wmt_export_platform_bridge_unregister(void)
 {
+	if (bridge.debug_cb)
+		conn_dbg_dev_deinit();
 	memset(&bridge, 0, sizeof(struct wmt_platform_bridge));
 	CONNADP_INFO_FUNC("\n");
 }
@@ -163,6 +277,21 @@ int mtk_wcn_conninfra_is_bus_hang(void)
 		return bridge.conninfra_reg_is_bus_hang_cb();
 }
 
+int mtk_wcn_conninfra_conn_bus_dump(void)
+{
+	static DEFINE_RATELIMIT_STATE(_rs, 5*HZ, 1);
+	int ret = 0;
+
+	if (unlikely(!bridge.conninfra_reg_is_bus_hang_no_lock_cb)) {
+		if (__ratelimit(&_rs))
+			CONNADP_WARN_FUNC("is_bus_hang_no_lock not registered\n");
+		ret = -1;
+	} else {
+		ret = bridge.conninfra_reg_is_bus_hang_no_lock_cb();
+	}
+
+	return ret;
+}
 
 /*******************************************************************************
  * SDIO integration with platform MMC driver
@@ -224,18 +353,15 @@ static irqreturn_t mtk_wcn_cmb_sdio_eirq_handler_stub(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void mtk_wcn_cmb_sdio_request_eirq(msdc_sdio_irq_handler_t irq_handler,
-					  void *data)
+void mtk_wcn_cmb_sdio_request_eirq_by_wmt(void)
 {
 #ifdef CONFIG_OF
-	struct device_node *node;
 	int ret = -EINVAL;
+	struct device_node *node;
 
 	CONNADP_INFO_FUNC("enter\n");
 	_mtk_wcn_sdio_irq_flag_set(0);
 	atomic_set(&irq_enable_flag, 1);
-	mtk_wcn_cmb_sdio_eirq_data = data;
-	mtk_wcn_cmb_sdio_eirq_handler = irq_handler;
 
 	node = (struct device_node *)of_find_compatible_node(NULL, NULL,
 					"mediatek,connectivity-combo");
@@ -251,6 +377,20 @@ static void mtk_wcn_cmb_sdio_request_eirq(msdc_sdio_irq_handler_t irq_handler,
 			mtk_wcn_cmb_sdio_disable_eirq();/*state:power off*/
 	} else
 		CONNADP_WARN_FUNC("can't find connectivity compatible node\n");
+
+	CONNADP_INFO_FUNC("exit\n");
+	return;
+#endif
+}
+EXPORT_SYMBOL(mtk_wcn_cmb_sdio_request_eirq_by_wmt);
+
+static void mtk_wcn_cmb_sdio_request_eirq(msdc_sdio_irq_handler_t irq_handler,
+					  void *data)
+{
+#ifdef CONFIG_OF
+	CONNADP_INFO_FUNC("enter\n");
+	mtk_wcn_cmb_sdio_eirq_data = data;
+	mtk_wcn_cmb_sdio_eirq_handler = irq_handler;
 
 	CONNADP_INFO_FUNC("exit\n");
 #else
@@ -272,7 +412,7 @@ static void mtk_wcn_cmb_sdio_enable_eirq(void)
 		CONNADP_DBG_FUNC("wifi eint has been enabled\n");
 	else {
 		atomic_set(&irq_enable_flag, 1);
-		if (wifi_irq != 0xfffffff) {
+		if (wifi_irq != 0xffffffff) {
 			enable_irq(wifi_irq);
 			CONNADP_DBG_FUNC(" enable WIFI EINT %d!\n", wifi_irq);
 		}
@@ -284,7 +424,7 @@ static void mtk_wcn_cmb_sdio_disable_eirq(void)
 	if (!atomic_read(&irq_enable_flag))
 		CONNADP_DBG_FUNC("wifi eint has been disabled!\n");
 	else {
-		if (wifi_irq != 0xfffffff) {
+		if (wifi_irq != 0xffffffff) {
 			disable_irq_nosync(wifi_irq);
 			CONNADP_DBG_FUNC("disable WIFI EINT %d!\n", wifi_irq);
 		}

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2016 MediaTek Inc.
@@ -20,8 +20,49 @@ import xml.dom.minidom
 
 sys.dont_write_bytecode = True
 
-sys.path.append('.')
-sys.path.append('..')
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# This tool was written for py2 implicit relative imports. Under py3 the same
+# source file can be importable under two names ("obj.ModuleObj" and
+# "ModuleObj"), yielding two distinct class objects and silently splitting the
+# shared chip-id state. Keep only the dct dir on sys.path and alias any bare
+# submodule name onto its package-qualified counterpart.
+sys.path[0] = HERE
+
+import importlib
+import importlib.abc
+import importlib.util
+
+_SUBPKGS = ('obj', 'utility', 'data')
+
+
+class _AliasLoader(importlib.abc.Loader):
+    def __init__(self, pkg, name):
+        self._pkg = pkg
+        self._name = name
+
+    def create_module(self, spec):
+        return None  # default creation; exec_module fills it in
+
+    def exec_module(self, module):
+        real = importlib.import_module(self._pkg + '.' + self._name)
+        module.__dict__.update(real.__dict__)
+        module.__dict__['__name__'] = module.__name__
+
+
+class _LegacyRelativeFinder(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if '.' in fullname:
+            return None
+        for pkg in _SUBPKGS:
+            pkgdir = os.path.join(HERE, pkg)
+            if os.path.isfile(os.path.join(pkgdir, fullname + '.py')):
+                return importlib.util.spec_from_loader(
+                    fullname, _AliasLoader(pkg, fullname),
+                    origin=os.path.join(pkgdir, fullname + '.py'))
+        return None
+
+sys.meta_path.insert(0, _LegacyRelativeFinder())
 
 from obj.ChipObj import ChipObj
 from obj.ChipObj import MT6797
@@ -47,7 +88,7 @@ from utility.util import LogLevel
 from utility.util import log
 
 def usage():
-    print '''
+    print('''
 usage: DrvGen [dws_path] [file_path] [log_path] [paras]...
 
 options and arguments:
@@ -56,7 +97,7 @@ dws_path    :    dws file path
 file_path   :    where you want to put generated files
 log_path    :    where to store the log files
 paras        :    parameter for generate wanted file
-'''
+''')
 
 def is_oldDws(path, gen_spec):
     if not os.path.exists(path):
@@ -65,7 +106,7 @@ def is_oldDws(path, gen_spec):
 
     try:
         root = xml.dom.minidom.parse(dws_path)
-    except Exception, e:
+    except Exception as e:
         log(LogLevel.warn, '%s is not xml format, try to use old DCT!' %(dws_path))
         if len(gen_spec) == 0:
             log(LogLevel.warn, 'Please use old DCT UI to gen all files!')

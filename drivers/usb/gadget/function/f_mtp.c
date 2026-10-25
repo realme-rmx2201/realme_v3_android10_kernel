@@ -2469,10 +2469,14 @@ static void mtp_free_inst(struct usb_function_instance *fi)
 	struct mtp_instance *fi_mtp;
 
 	fi_mtp = to_fi_mtp(fi);
+	if (!fi_mtp)
+		return;
 	kfree(fi_mtp->name);
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
-	device_destroy(fi_mtp->mtp_device->class,
-			fi_mtp->mtp_device->devt);
+	if (fi_mtp->mtp_device) {
+		device_destroy(fi_mtp->mtp_device->class,
+				fi_mtp->mtp_device->devt);
+	}
 #endif
 	mtp_cleanup();
 	//kfree(fi_mtp->mtp_os_desc.group.default_groups);

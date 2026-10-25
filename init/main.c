@@ -106,6 +106,7 @@
 
 
 static int kernel_init(void *);
+extern void sram_beacon_mark(unsigned int);
 
 extern void init_IRQ(void);
 extern void fork_init(void);

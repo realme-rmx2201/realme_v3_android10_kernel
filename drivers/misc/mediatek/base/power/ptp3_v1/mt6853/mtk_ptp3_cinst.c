@@ -156,6 +156,11 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	unsigned int cinst_cfg = CINST_RW_REG_READ << 4;
 	unsigned char is_reg_status_valid;
 
+	if (!buf) {
+		cinst_debug("cinst_buf is NULL, skip dump\n");
+		return -1;
+	}
+
 	/* check free page valid or not */
 	if (!aee_log_buf) {
 		cinst_debug("unable to get free page!\n");

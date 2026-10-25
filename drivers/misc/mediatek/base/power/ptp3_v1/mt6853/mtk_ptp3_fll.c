@@ -133,9 +133,16 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	const unsigned int bits = 31;
 	const unsigned int shift = 0;
 	unsigned int fll_group_bits_shift;
-	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
+	char *aee_log_buf;
 	unsigned int fll_cfg =
 		(FLL_RW_READ << 15) | (shift << 10) | (bits << 4);
+
+	if (!buf) {
+		fll_err("fll_buf is NULL, skip dump\n");
+		return -1;
+	}
+
+	aee_log_buf = (char *) __get_free_page(GFP_USER);
 
 	/* check free page valid or not */
 	if (!aee_log_buf) {

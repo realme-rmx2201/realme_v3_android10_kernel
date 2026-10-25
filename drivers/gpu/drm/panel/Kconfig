@@ -371,6 +371,16 @@ config DRM_PANEL_OPPO19040_SAMSUNG_ANA6705_1080P_DSI_CMD
           24-bits RGB per pixel. It provides a MIPI DSI interface
           to host.
 
+config DRM_PANEL_OPPO20625_NT35625B_BOE_HLT_B8_DSI_VDO
+	tristate "oppo20625 boe hlt b8 nt35625b 720p dsi vdo"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for the BOE HLT B8
+	  NT35625B 720x1600 video-mode panel used on the realme V3 (RMX2201).
+	  It provides a MIPI DSI interface with 24-bit RGB per pixel.
+
 config DRM_PANEL_OPPO20601_BOE_NT37800_1080P_DSI_CMD
         tristate "oppo20601 boe nt37800 1080p dsi cmd "
         depends on OF
@@ -390,6 +400,17 @@ config DRM_PANEL_OPPO20601_SAMSUNG_SOFE03F_M_1080P_DSI_CMD
         help
           Say Y here if you want to enable support for boe nt37800 cmd
           mode panel. The panel has a 1080x2340 resolution and uses
+          24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_OPPO20625_NT35625B_BOE_HLT_B8_DSI_VDO
+        tristate "oppo20625 nt35625b boe hlt b8 dsi vdo"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for boe nt35625b vdo
+          mode panel. The panel has a 720x1600 resolution and uses
           24-bits RGB per pixel. It provides a MIPI DSI interface
           to host.
 

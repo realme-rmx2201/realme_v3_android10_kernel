@@ -22,8 +22,7 @@ from ModuleObj import ModuleObj
 from utility.util import sorted_key
 from data.I2cData import I2cData
 from data.I2cData import BusData
-import ChipObj
-
+# import ChipObj  # unused; py3 circular import
 class I2cObj(ModuleObj):
     _busList = []
     _bBusEnable = True

@@ -18,7 +18,7 @@ import string
 import ConfigParser
 import xml.dom.minidom
 
-import ChipObj
+# import ChipObj  # unused; py3 circular import
 from data.PowerData import PowerData
 from utility.util import log
 from utility.util import LogLevel

@@ -32,7 +32,7 @@
 #define MAX_CMD_LENGTH                  32
 #define DEFAULT_PHX_WD_PET_TIME         (60 * 4)
 
-static int hang_oppo_main_on = 1;   //default on
+static int hang_oppo_main_on = 0;   //default off (GSI boot)
 int hang_oppo_recovery_method = RESTART_AND_RECOVERY;
 static int phx_hlos_wd_pet_time = DEFAULT_PHX_WD_PET_TIME;
 static char buildvariant[20];
@@ -76,8 +76,10 @@ static void reinitialze_pet_time_for_debug_build(void)
 static int __init hang_oppo_main_on_init(char *str)
 {
     get_option(&str,&hang_oppo_main_on);
+    // FORCE OFF for GSI development boot
+    hang_oppo_main_on = 0;
 
-    pr_info("hang_oppo_main_on %d\n", hang_oppo_main_on);
+    pr_info("hang_oppo_main_on %d (forced 0)\n", hang_oppo_main_on);
 
     return 1;
 }
@@ -176,7 +178,8 @@ static int phx_pet(void)
         {
             return 0;
         }
-        phx_set_boot_error(ERROR_HANG_OPPO);
+        // DISABLED: GSI boot is slow on first boot, do not trigger PHOENIX reset
+        // phx_set_boot_error(ERROR_HANG_OPPO);
     }
     return 0;
 

@@ -13,7 +13,7 @@ ifdef CONFIG_MTK_RAM_CONSOLE
 ccflags-y += -Idrivers/misc/mediatek/include/
 endif
 
-obj-y                          := main.o version.o mounts.o
+obj-y                          := main.o version.o mounts.o srambeacon.o
 obj-y                          += noinitramfs.o
 obj-$(CONFIG_BLK_DEV_INITRD)   += initramfs.o
 obj-$(CONFIG_GENERIC_CALIBRATE_DELAY) += calibrate.o
