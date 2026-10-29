@@ -782,11 +782,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	static DEFINE_RATELIMIT_STATE(ratelimit1, 1 * HZ, 2);
 	static DEFINE_RATELIMIT_STATE(ratelimit2, 1 * HZ, 2);
 
-	if (!skb)
-		return -EINVAL;
-
-	pinfo = skb_shinfo(skb);
-
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		in = dev->port_usb->in_ep;
@@ -796,8 +791,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	if (skb && !in) {
-		dev_kfree_skb_any(skb);
+	if (!in) {
+		if (skb)
+			dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
 
@@ -840,6 +836,8 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		/* no error code for dropped packets */
 		return NETDEV_TX_OK;
 	}
+
+	pinfo = skb_shinfo(skb);
 
 	spin_lock_irqsave(&dev->req_lock, flags);
 

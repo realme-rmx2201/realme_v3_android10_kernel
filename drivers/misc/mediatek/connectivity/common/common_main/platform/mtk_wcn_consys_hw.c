@@ -218,10 +218,21 @@ UINT32 mtk_wcn_consys_hw_osc_en_ctrl(UINT32 en)
 P_WMT_CONSYS_IC_OPS mtk_wcn_get_consys_ic_ops(VOID)
 {
 	const struct of_device_id *of_id = NULL;
+	struct device_node *np;
 
 	if (!g_pdev) {
-		WMT_PLAT_PR_INFO("g_pdev is NULL\n");
-		return NULL;
+		/* wmt_loader asks for the chip id before the platform driver has
+		 * probed, so match the DT node directly instead of failing. */
+		np = of_find_matching_node(NULL, apwmt_of_ids);
+		if (!np) {
+			WMT_PLAT_PR_INFO("g_pdev is NULL\n");
+			return NULL;
+		}
+		of_id = of_match_node(apwmt_of_ids, np);
+		of_node_put(np);
+		if (!of_id || !of_id->data)
+			return NULL;
+		return (P_WMT_CONSYS_IC_OPS)of_id->data;
 	}
 
 	of_id = of_match_node(apwmt_of_ids, g_pdev->dev.of_node);

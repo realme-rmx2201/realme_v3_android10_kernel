@@ -5271,7 +5271,7 @@ static int  nvt_tp_probe(struct spi_device *client)
 
     // update fw in probe
 #ifdef CONFIG_TOUCHPANEL_MTK_PLATFORM
-    if (ts->boot_mode == RECOVERY_BOOT || is_oem_unlocked() || ts->fw_update_in_probe_with_headfile)
+    if (ts->boot_mode == RECOVERY_BOOT || is_oem_unlocked() || ts->fw_update_in_probe_with_headfile || ts->lcd_trigger_load_tp_fw_support)
 #else
     if (ts->boot_mode == MSM_BOOT_MODE__RECOVERY || is_oem_unlocked() || ts->fw_update_in_probe_with_headfile)
 #endif
